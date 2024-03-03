@@ -29,50 +29,106 @@ const {getFirestore} = require("firebase-admin/firestore");
 initializeApp();
 // [END import]
 
-// [START addmessage]
-// Take the text parameter passed to this HTTP endpoint and insert it into
-// Firestore under the path /messages/:documentId/original
-// [START addmessageTrigger]
-exports.addmessage = onRequest(
+
+/**
+ * Firestoreにある全記録を配列で返す
+ * @returns [Array] - レコードのオブジェクトを要素に持つ配列
+ */
+const  getAllRec =  async () => {
+ // Push the new message into Firestore using the Firebase Admin SDK.
+  const resRecords = [];
+  await getFirestore()
+    .collection("japaneseMapStudyRecord")
+    .orderBy("second").orderBy("datetime")
+    .get()
+    .then((snapShot) => {
+        snapShot.forEach((doc) => {
+        let data = doc.data();
+        resRecords.push({
+          documentId: doc.id,
+          name: data.name,
+          record: data.record,
+          second: data.second
+        });
+      })
+    });
+  return resRecords;
+}
+
+
+exports.getJmsRecord = onRequest(
   {cors: [/firebase\.com$/, "https://masato-tsuji.github.io"]},
   async (req, res) => {
   // [END addmessageTrigger]
-  // Grab the text parameter.
-  const original = req.query.text;
-  // [START adminSdkAdd]
-  // Push the new message into Firestore using the Firebase Admin SDK.
-  const writeResult = await getFirestore()
-      .collection("uppercase-messages")
-      .add({original: original, date: new Date()});
+  const limit = req.query.limit * 1;
+
+  const allRecords = await getAllRec();
+
   // Send back a message that we've successfully written the message
-  res.json({result: `Message with ID: ${writeResult.id} added.`});
-  // [END adminSdkAdd]
+  res.json({records: allRecords.slice(0, limit)});
 });
-// [END addmessage]
 
-// [START makeuppercase]
-// Listens for new messages added to /messages/:documentId/original
-// and saves an uppercased version of the message
-// to /messages/:documentId/uppercase
-// [START makeuppercaseTrigger]
-// documentが作成された時のイベント
-exports.makeuppercase = onDocumentCreated("/uppercase-messages/{documentId}", (event) => {
-  // [END makeuppercaseTrigger]
-  // [START makeUppercaseBody]
-  // Grab the current value of what was written to Firestore.
-  const original = event.data.data().original;
+/**
+ *  引数で受け取ったレコードがランクインしていたら保存して更新した順位データを返す
+ * requestパラメータとしてname, record, limitを受け取る
+ */
+exports.addJmsRecord = onRequest(
+  {cors: [/firebase\.com$/, "https://masato-tsuji.github.io"]},
+  async (req, res) => {
+  const name = req.query.name;
+  const record = req.query.record;
+  const timeSplit = record.split(":");
+  const second = Number(timeSplit[0]) * 60 + Number(timeSplit[1]);
 
-  // Access the parameter `{documentId}` with `event.params`
-  logger.log("Uppercasing", event.params.documentId, original);
+  const limit = req.query.limit * 1;
 
-  const uppercase = original.toUpperCase();
+  // 全レコード取得
+  const records = await getAllRec();
+  const recordCnt = records.length;
 
-  // You must return a Promise when performing
-  // asynchronous tasks inside a function
-  // such as writing to Firestore.
-  // Setting an 'uppercase' field in Firestore document returns a Promise.
-  return event.data.ref.set({uppercase}, {merge: true});
-  // [END makeUppercaseBody]
+  const upperRecordCount = 20;
+
+  // 順位取得
+  let rank = 1;
+  for (let i = 0; i < recordCnt; i++) {
+    if (records[i].second < second) {
+      rank++;
+    } else {
+      break;
+    }
+  } 
+
+  // 上限未達又はランクインならデータ追加
+  // writeResult.id => document id
+  if (recordCnt < upperRecordCount || rank < recordCnt) {
+    const writeResult = await getFirestore()
+      .collection("japaneseMapStudyRecord")
+      .add({name: name, record: record, second: second, datetime: new Date()});
+      // .add({name: name, record: record, datetime: new Date(), headers: req.headers});
+  }
+
+  // 
+  // 保存上限数超えなら削除
+  // await db.collection('users')
+  // .doc(documentPath)
+  // .delete()
+
+  res.json({records: records.slice(0, limit), rank: rank});
 });
-// [END makeuppercase]
-// [END all]
+
+
+// 検討中
+/**
+ * documentが追加されたらレコード数をカウントして上限を超えたら最後のレコードを削除
+ */
+// exports.makeuppercase = onDocumentCreated("/japaneseMapStudyRecord/{documentId}", (event) => {
+//   const original = event.data.data().original;
+
+//   // Access the parameter `{documentId}` with `event.params`
+//   logger.log("Uppercasing", event.params.documentId, original);
+
+//   const uppercase = original.toUpperCase();
+
+//   return event.data.ref.set({uppercase}, {merge: true});
+// });
+

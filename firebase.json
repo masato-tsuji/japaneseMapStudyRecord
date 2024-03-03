@@ -1,7 +1,16 @@
 {
-  "functions": {
-    "codebase": "uppercase-firestore"
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "jms_record",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -15,6 +24,7 @@
     },
     "ui": {
       "enabled": true
-    }
+    },
+    "singleProjectMode": true
   }
 }
