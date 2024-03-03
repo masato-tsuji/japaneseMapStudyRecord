@@ -107,7 +107,6 @@ exports.addJmsRecord = onRequest(
       // .add({name: name, record: record, datetime: new Date(), headers: req.headers});
   }
 
-  // 
   // 保存上限数超えなら削除
   // await db.collection('users')
   // .doc(documentPath)
