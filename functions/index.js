@@ -38,7 +38,7 @@ const  getAllRec =  async () => {
  // Push the new message into Firestore using the Firebase Admin SDK.
   const resRecords = [];
   await getFirestore()
-    .collection("japaneseMapStudyRecord")
+    .collection("JapaneseMapStudyRecord")
     .orderBy("second").orderBy("datetime")
     .get()
     .then((snapShot) => {
@@ -65,7 +65,7 @@ exports.getJmsRecord = onRequest(
   const allRecords = await getAllRec();
 
   // Send back a message that we've successfully written the message
-  res.json({records: allRecords.slice(0, limit)});
+  res.json({records: allRecords.slice(0, limit), header: req.headers});
 });
 
 /**
@@ -102,8 +102,8 @@ exports.addJmsRecord = onRequest(
   // writeResult.id => document id
   if (recordCnt < upperRecordCount || rank < recordCnt) {
     const writeResult = await getFirestore()
-      .collection("japaneseMapStudyRecord")
-      .add({name: name, record: record, second: second, datetime: new Date()});
+      .collection("JapaneseMapStudyRecord")
+      .add({name: name, record: record, second: second, datetime: new Date(), host: req.headers.host});
       // .add({name: name, record: record, datetime: new Date(), headers: req.headers});
   }
 
