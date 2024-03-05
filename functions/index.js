@@ -30,6 +30,21 @@ initializeApp();
 // [END import]
 
 
+exports.initializeJmsRecord = onRequest(
+  {cors: [/firebase\.com$/, "https://masato-tsuji.github.io"]},
+  async (req, res) => {
+
+  const clientIp = (req.headers["x-forwarded-for"]).split(",")[0];
+  // const clientIp = "test";
+  await getFirestore()
+    .collection("JapaneseMapStudyApplication")
+    .add({datetime: new Date(), client_ip: clientIp, app_id:req.query.id});
+
+  // Send back a message that we've successfully written the message
+  res.json({result: "success"});
+});
+
+
 /**
  * Firestoreにある全記録を配列で返す
  * @returns [Array] - レコードのオブジェクトを要素に持つ配列
@@ -42,7 +57,7 @@ const  getAllRec =  async () => {
     .orderBy("second").orderBy("datetime")
     .get()
     .then((snapShot) => {
-        snapShot.forEach((doc) => {
+      snapShot.forEach((doc) => {
         let data = doc.data();
         resRecords.push({
           documentId: doc.id,
@@ -56,17 +71,33 @@ const  getAllRec =  async () => {
 }
 
 
+/**
+ * 
+ */
 exports.getJmsRecord = onRequest(
   {cors: [/firebase\.com$/, "https://masato-tsuji.github.io"]},
   async (req, res) => {
-  // [END addmessageTrigger]
   const limit = req.query.limit * 1;
 
-  const allRecords = await getAllRec();
+  // const allRecords = await getAllRec();
+  const resRecords = [];
+  await getFirestore()
+    .collection("JapaneseMapStudyRecord")
+    .orderBy("second").orderBy("datetime")
+    .get()
+    .then((snapShot) => {
+      snapShot.forEach((doc) => {
+        let data = doc.data();
+        resRecords.push({
+          name: data.name,
+          record: data.record
+        });
+      })
+    });
 
-  // Send back a message that we've successfully written the message
-  res.json({records: allRecords.slice(0, limit), header: req.headers});
+  res.json({records: resRecords.slice(0, limit)});
 });
+
 
 /**
  *  受け取ったレコードがランクインしていたら保存して更新した順位データを返す
@@ -75,7 +106,7 @@ exports.getJmsRecord = onRequest(
 exports.addJmsRecord = onRequest(
   {cors: [/firebase\.com$/, "https://masato-tsuji.github.io"]},
   async (req, res) => {
-  const clientIp = (req.headers["x-forwarded-for"]).split(",")[0]
+  const clientIp = (req.headers["x-forwarded-for"]).split(",")[0];
   const name = req.query.name;
   const record = req.query.record;
   const timeSplit = record.split(":");
@@ -98,7 +129,6 @@ exports.addJmsRecord = onRequest(
       break;
     }
   }
-
 
   // 上限未達又はランクインならデータ追加
   // writeResult.id => document id
@@ -124,7 +154,6 @@ exports.addJmsRecord = onRequest(
       break;
     }
   }
-
   
   res.json({records: newRecord.slice(0, limit), rank: rank});
 
