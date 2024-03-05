@@ -69,12 +69,13 @@ exports.getJmsRecord = onRequest(
 });
 
 /**
- *  引数で受け取ったレコードがランクインしていたら保存して更新した順位データを返す
+ *  受け取ったレコードがランクインしていたら保存して更新した順位データを返す
  * requestパラメータとしてname, record, limitを受け取る
  */
 exports.addJmsRecord = onRequest(
   {cors: [/firebase\.com$/, "https://masato-tsuji.github.io"]},
   async (req, res) => {
+  const clientIp = (req.headers["x-forwarded-for"]).split(",")[0]
   const name = req.query.name;
   const record = req.query.record;
   const timeSplit = record.split(":");
@@ -84,7 +85,7 @@ exports.addJmsRecord = onRequest(
 
   // 全レコード取得
   const records = await getAllRec();
-  const recordCnt = records.length;
+  let recordCnt = records.length;
 
   const upperRecordCount = 20;
 
@@ -96,23 +97,37 @@ exports.addJmsRecord = onRequest(
     } else {
       break;
     }
-  } 
+  }
+
 
   // 上限未達又はランクインならデータ追加
   // writeResult.id => document id
   if (recordCnt < upperRecordCount || rank < recordCnt) {
     const writeResult = await getFirestore()
       .collection("JapaneseMapStudyRecord")
-      .add({name: name, record: record, second: second, datetime: new Date(), host: req.headers.host});
+      .add({name: name, record: record, second: second, datetime: new Date(), client_ip: clientIp});
       // .add({name: name, record: record, datetime: new Date(), headers: req.headers});
   }
 
-  // 保存上限数超えなら削除
+  // 最新レコード取得＆保存上限数超えなら削除
   // await db.collection('users')
   // .doc(documentPath)
   // .delete()
+  const newRecord = await getAllRec();
+  recordCnt = newRecord.length;
+  // 順位再取得
+  rank = 1;
+  for (let i = 0; i < recordCnt; i++) {
+    if (newRecord[i].second < second) {
+      rank++;
+    } else {
+      break;
+    }
+  }
 
-  res.json({records: records.slice(0, limit), rank: rank});
+  
+  res.json({records: newRecord.slice(0, limit), rank: rank});
+
 });
 
 
