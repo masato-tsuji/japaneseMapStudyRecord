@@ -94,7 +94,6 @@ exports.getJmsRecord = onRequest(
         });
       })
     });
-
   res.json({records: resRecords.slice(0, limit)});
 });
 
